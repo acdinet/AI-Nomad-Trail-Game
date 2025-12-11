@@ -50,11 +50,13 @@ class Player {
         return !this.is_alive;
     }
 
+    // FIX HERE: Added a check for the log area before trying to use it.
     logMessage(text, colorClass = 'text-gray-800') {
         const log = document.getElementById('log-area');
         const p = document.createElement('p');
         p.className = `text-sm mb-1 ${colorClass}`;
         p.textContent = text;
+        // Only try to prepend if the log element exists
         if (log) log.prepend(p);
     }
 }
@@ -142,8 +144,9 @@ function endGame(isWin) {
 }
 
 function initializeGame() {
-    // This is the function that likely shows the initial profession selection UI
     const gameArea = document.getElementById('game-area');
+    // NOTE: gameArea is guaranteed to exist because the script runs after the <body> content.
+
     gameArea.innerHTML = `
         <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl">
             <h1 class="text-4xl font-extrabold text-indigo-700 mb-6 border-b pb-3">The 2025 AI Nomad Trail</h1>
@@ -234,15 +237,14 @@ function moveNextStop() {
 
 async function generateAIScenario() {
     // 1. SECURELY GET THE KEY FROM VERCEL ENVIRONMENT VARIABLE
-    // The NEXT_PUBLIC_ prefix is required by Vercel to expose the variable client-side.
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
     // 2. ERROR CHECK: PREVENT CRASH
     if (!GEMINI_API_KEY) {
-        player.logMessage("FATAL ERROR: AI Key is missing. Check Vercel Environment Variables (must be NEXT_PUBLIC_GEMINI_API_KEY).", 'text-red-600 font-bold');
+        player.logMessage("FATAL ERROR: AI Key is missing. Check Vercel Environment Variables.", 'text-red-600 font-bold');
         isProcessing = false;
         updateUI();
-        displayActionControls(); // Re-enable the button
+        displayActionControls();
         return;
     }
     
@@ -262,14 +264,12 @@ async function generateAIScenario() {
 
     // 3. ACTUAL API CALL TO GEMINI
     try {
-        // Use the standard Google AI API endpoint, passing the key as a query parameter.
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                // Construct the prompt using current player stats
                 contents: [{ 
                     parts: [{ text: `Generate a multiple-choice scenario for a digital nomad trail game. The player is a ${player.profession} and is ${player.distance} miles into the journey. Give one scenario description and three choices (A, B, C) that affect their Cash, Laptop Health, and Mental Health. The response MUST be a clean, parseable JSON object with keys: "scenario", "outcomeA", "effectA", "outcomeB", "effectB", "outcomeC", "effectC". The effects must be in the format: "cash": number, "laptop": number, "mental": number. Output ONLY the JSON object.` }]
                 }],
@@ -286,16 +286,13 @@ async function generateAIScenario() {
             throw new Error(`AI API failed: ${errorMessage}`);
         }
         
-        // Extract the text from the response structure
         const rawText = data.candidates[0].content.parts[0].text;
-        // Attempt to extract the JSON object in case the AI added extra text
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         
         if (!jsonMatch) {
-            throw new Error("AI response was not a clean JSON object. Retrying scenario generation.");
+            throw new Error("AI response was not a clean JSON object.");
         }
         
-        // Parse the JSON object
         currentScenario = JSON.parse(jsonMatch[0]);
         displayScenario(currentScenario); 
 
@@ -303,12 +300,12 @@ async function generateAIScenario() {
         player.logMessage(`Error processing scenario: ${error.message}. Try again.`, 'text-red-600');
         isProcessing = false;
         updateUI();
-        displayActionControls(); // Re-enable the button after error
+        displayActionControls();
     }
 }
 
 
-// --- MISSING GAME LOGIC (ADDED FOR COMPLETENESS) ---
+// --- MISSING GAME LOGIC ---
 
 function displayScenario(scenario) {
     const scenarioDisplay = document.getElementById('scenario-display');
@@ -366,9 +363,11 @@ function handleChoice(choice) {
     isProcessing = false;
     currentScenario = null;
     updateUI();
-    displayActionControls(); // Re-enable the "Move to Next Stop" button
+    displayActionControls();
 }
 
 // --- INITIALIZATION ---
-window.onload = initializeGame;
+// FIX HERE: Call initializeGame directly instead of using window.onload which can fire too early 
+// before the log area is available within the innerHTML of gameArea.
+initializeGame();
 </script>
