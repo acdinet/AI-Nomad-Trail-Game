@@ -1,22 +1,15 @@
 // Vercel Serverless Function: api/generate.js
-// This file runs on the Vercel server, securely using the API key.
 
-// Import Google's official client library
 const { GoogleGenAI } = require("@google/genai");
-
-// Retrieve API Key securely from Vercel's environment variables
-// This variable (GEMINI_API_KEY) MUST be set in your Vercel project settings.
 const apiKey = process.env.GEMINI_API_KEY; 
 
-// Initialize the AI client
 if (!apiKey) {
-    // If the key is missing on the server, send a 500 error to the client
     module.exports = (req, res) => res.status(500).send({ error: "Server Configuration Error: API Key Missing." });
     return;
 }
 const ai = new GoogleGenAI(apiKey);
 
-// --- Define the Schema and System Prompt (Copied from the client JS) ---
+// --- Define the Schema and System Prompt (Copied from your original JS) ---
 const systemPrompt = `You are the Game Master for a game called "The 2025 Digital Nomad Trail". Your task is to generate a unique, unpredictable, and highly specific scenario tailored to a remote worker traveling across the US. The scenario MUST be relevant to CURRENT EVENTS or timeless digital nomad challenges: tech failure, gig economy paywalls, political instability, unexpected travel costs, or mental health burnout. You MUST return the output as a valid JSON object following the provided schema, including exactly two distinct choices (A and B) with realistic consequences. Do not add any text or explanation outside the JSON.`;
  
 const scenarioSchema = {
@@ -78,7 +71,6 @@ module.exports = async (req, res) => {
         
         const scenario = JSON.parse(resultText);
 
-        // Send the secure scenario back to the client
         res.status(200).send({ scenario: scenario });
 
     } catch (error) {
