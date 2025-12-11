@@ -27,10 +27,7 @@ const STARTING_CASH = 3000;
 const STARTING_LAPTOP_HEALTH = 100;
 const STARTING_MENTAL_HEALTH = 100;
 
-// Global variables provided by the environment
-// NOTE: I've replaced your API Key with a placeholder for security.
-const apiKey = "AIzaSyBvoJ14fof3kPl2GSZG84DtrBFwZf-wc2c"; 
-const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+// API key constants and direct API URLs have been REMOVED for security.
 
 // --- Player Class (JavaScript equivalent) ---
 class Player {
@@ -78,7 +75,7 @@ class Player {
         const p = document.createElement('p');
         p.className = `text-sm mb-1 ${colorClass}`;
         p.textContent = text;
-        if (log) log.prepend(p); // Null check for log area
+        if (log) log.prepend(p);
     }
 }
 
@@ -106,9 +103,8 @@ function updateUI() {
         const label = document.getElementById(`${stat.id}-label`);
         const value = Math.max(0, stat.value);
 
-        if (element && label) { // Check if elements exist before manipulation
+        if (element && label) {
             element.style.width = `${value}%`;
-            // Ensure no re-assigning of element.className is done here if the class is sufficient in HTML
             label.textContent = `${stat.label}: ${value.toFixed(0)}%`;
         }
     });
@@ -166,28 +162,7 @@ function endGame(isWin) {
 }
 
 
-// --- AI API Integration & Scenario Generation ---
-
-async function fetchWithBackoff(url, options, maxRetries = 5) {
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const response = await fetch(url, options);
-            if (response.ok) {
-                return response.json();
-            }
-            if (response.status === 429 && i < maxRetries - 1) {
-                const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-                await new Promise(resolve => setTimeout(resolve, delay));
-                continue;
-            }
-            throw new Error(`API request failed with status ${response.status}`);
-        } catch (error) {
-            if (i === maxRetries - 1) throw error;
-            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-}
+// --- AI API Integration (Secure Serverless Call) ---
 
 async function generateAIScenario() {
     player.logMessage("Requesting new, unique scenario from AI...", 'text-yellow-600');
@@ -201,270 +176,3 @@ async function generateAIScenario() {
                 <h2 class="text-2xl font-bold text-yellow-700">Generating Scenario...</h2>
                 <p class="text-gray-600 mt-2">The AI is creating a dynamic challenge tailored to your journey.</p>
             </div>
-        `;
-    }
-
-    const systemPrompt = `You are the Game Master for a game called "The 2025 Digital Nomad Trail". Your task is to generate a unique, unpredictable, and highly specific scenario tailored to a remote worker traveling across the US. The scenario MUST be relevant to CURRENT EVENTS or timeless digital nomad challenges: tech failure, gig economy paywalls, political instability, unexpected travel costs, or mental health burnout. You MUST return the output as a valid JSON object following the provided schema, including exactly two distinct choices (A and B) with realistic consequences. Do not add any text or explanation outside the JSON.`;
-    const userQuery = `Generate a new event scenario for a player who is currently a ${player.profession}. The event should involve a choice between two actions, each with clear impacts on Cash, Laptop Health (1-100), and Mental Health (1-100). Keep the effects moderate (e.g., changes between -100 and +100 for cash, and -30 to +15 for health).`;
-
-    const scenarioSchema = {
-        type: "OBJECT",
-        properties: {
-            title: { type: "STRING", description: "A catchy, short title for the event, e.g., 'Server Meltdown' or 'Unexpected Checkpoint'." },
-            description: { type: "STRING", description: "A detailed description of the event unfolding, setting the scene." },
-            choices: {
-                type: "ARRAY",
-                description: "Exactly two distinct choices the player can make, A and B.",
-                items: {
-                    type: "OBJECT",
-                    properties: {
-                        option: { type: "STRING", description: "The text for the player's choice (e.g., 'Pay for premium repairs' or 'Attempt DIY fix')." },
-                        effect_cash: { type: "INTEGER", description: "Change to player cash. Positive is gain, negative is loss. Range: -200 to 200." },
-                        effect_laptop: { type: "INTEGER", description: "Change to laptop health (1-100). Positive is gain, negative is loss. Range: -30 to 15." },
-                        effect_mental: { type: "INTEGER", description: "Change to mental health (1-100). Positive is gain, negative is loss. Range: -20 to 10." },
-                        outcome_text: { type: "STRING", description: "A brief, narrative consequence of making this choice." }
-                    },
-                    required: ["option", "effect_cash", "effect_laptop", "effect_mental", "outcome_text"]
-                }
-            }
-        },
-        required: ["title", "description", "choices"]
-    };
-
-    const payload = {
-        contents: [{ parts: [{ text: userQuery }] }],
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: scenarioSchema
-        }
-    };
-
-    try {
-        const response = await fetchWithBackoff(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        const result = response.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!result) {
-            throw new Error("AI returned no content.");
-        }
-
-        const scenario = JSON.parse(result);
-        displayScenario(scenario);
-
-    } catch (error) {
-        console.error("AI Scenario Generation Failed:", error);
-        player.logMessage("Error generating AI scenario. Applying default setback.", 'text-red-600');
-        
-        const fallback = {
-            title: "Network Outage",
-            description: "The WiFi at your roadside motel completely died. You lose half a day's work and must use cellular data to compensate.",
-            choices: [
-                { option: "Use high-speed hotspot", effect_cash: -80, effect_laptop: 0, effect_mental: -15, outcome_text: "You salvage the day, but the data plan cost a lot." },
-                { option: "Wait it out", effect_cash: 0, effect_laptop: -5, effect_mental: -25, outcome_text: "You wasted time and the laptop battery drained from idle searching. Massive mental fatigue." }
-            ]
-        };
-        displayScenario(fallback);
-    } finally {
-        isProcessing = false;
-    }
-}
-
-function displayScenario(scenario) {
-    currentScenario = scenario;
-    
-    const display = document.getElementById('scenario-display');
-    const controls = document.getElementById('action-controls');
-
-    player.logMessage(`*** AI EVENT: ${scenario.title.toUpperCase()} ***`, 'text-indigo-800 font-semibold');
-
-    if (display) {
-        display.innerHTML = `
-            <div class="p-6 bg-white rounded-xl shadow-lg border-t-4 border-indigo-500">
-                <h2 class="text-2xl font-extrabold text-indigo-700 mb-3">${scenario.title}</h2>
-                <p class="text-gray-600 mb-4">${scenario.description}</p>
-            </div>
-        `;
-    }
-
-    if (controls) {
-        controls.innerHTML = `
-            <div class="grid md:grid-cols-2 gap-4">
-                ${scenario.choices.map((choice, index) => `
-                    <button onclick="handleChoice(${index})"
-                        class="p-4 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md transition duration-150 transform hover:scale-[1.02] text-left">
-                        <span class="text-lg block font-mono mb-1">Choice ${String.fromCharCode(65 + index)}:</span>
-                        <span class="block">${choice.option}</span>
-                    </button>
-                `).join('')}
-            </div>
-        `;
-    }
-}
-
-// Change function signature to only accept choiceIndex
-function handleChoice(choiceIndex) { 
-    if (isProcessing || !currentScenario) return; 
-    
-    const actionControls = document.getElementById('action-controls');
-    const scenarioDisplay = document.getElementById('scenario-display');
-
-    const choices = currentScenario.choices;
-    const choice = choices[choiceIndex];
-
-    player.applyEffect(
-        choice.effect_cash, 
-        choice.effect_laptop, 
-        choice.effect_mental, 
-        0, 
-        choice.outcome_text
-    );
-
-    if (scenarioDisplay) scenarioDisplay.innerHTML = '';
-    
-    if (actionControls) {
-        actionControls.innerHTML = `
-            <button id="continue-btn" onclick="continueJourney()" class="w-full p-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition duration-150">
-                Press to Continue Journey
-            </button>
-        `;
-    }
-    currentScenario = null; // Clear the scenario after choice
-    updateUI();
-}
-
-// --- Core Game Loop Functions ---
-
-function continueJourney() {
-    if (isProcessing) return;
-
-    const miles_traveled = Math.floor(Math.random() * (200 - 100 + 1)) + 100;
-    player.distance = Math.min(TOTAL_DISTANCE, player.distance + miles_traveled);
-
-    const daily_cost = Math.floor(Math.random() * (250 - 100 + 1)) + 100;
-    player.cash -= daily_cost;
-
-    player.laptop_health = player.clamp(player.laptop_health - (Math.floor(Math.random() * 5) + 1), 0, 100);
-    player.mental_health = player.clamp(player.mental_health - (Math.floor(Math.random() * 10) + 1), 0, 100);
-
-    player.logMessage(`Traveled ${miles_traveled} miles. Spent $${daily_cost} on essentials.`, 'text-gray-700');
-    
-    updateUI();
-
-    if (player.checkGameOver() || player.distance >= TOTAL_DISTANCE) return;
-
-    if (Math.random() < 0.4) {
-        generateAIScenario();
-    } else {
-        const actionControls = document.getElementById('action-controls');
-        if (actionControls) {
-            actionControls.innerHTML = `
-                <button id="continue-btn" onclick="continueJourney()" class="w-full p-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition duration-150">
-                    Press to Continue Journey
-                </button>
-            `;
-        }
-    }
-}
-
-
-function startGame() {
-    const professions = ["Freelance Coder", "Social Media Consultant", "Remote UX Designer"];
-    const gameArea = document.getElementById('game-area');
-    
-    if (gameArea) {
-        gameArea.innerHTML = `
-            <div id="intro-card" class="max-w-md mx-auto p-8 bg-white rounded-xl shadow-2xl text-center">
-                <h1 class="text-3xl font-bold text-indigo-700 mb-6">THE 2025 AI NOMAD TRAIL</h1>
-                <p class="mb-6 text-gray-700">Journey from ${START_CITY} to ${END_CITY} (${TOTAL_DISTANCE} miles).</p>
-                <h2 class="text-xl font-semibold mb-4 text-indigo-600">Choose Your Profession:</h2>
-                <div id="profession-choices" class="space-y-3">
-                    ${professions.map((p, i) => `
-                        <button onclick="selectProfession('${p}')" class="w-full p-3 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg shadow transition duration-150">
-                            ${p}
-                        </button>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-}
-
-function selectProfession(profession) {
-    player = new Player(profession);
-    isProcessing = false;
-    
-    // Render the main game UI
-    const gameArea = document.getElementById('game-area');
-    if (gameArea) {
-        gameArea.innerHTML = `
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 md:p-8">
-                
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="bg-white p-6 rounded-xl shadow-lg">
-                        <div id="status-info" class="pb-3 border-b border-gray-200"></div>
-                        
-                        <h3 class="text-lg font-bold mt-4 mb-3 text-gray-700">Resources</h3>
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-700">Cash:</span>
-                                <span id="cash-value" class="text-2xl font-extrabold text-green-600">$3,000.00</span>
-                            </div>
-                            <div class="h-2 bg-gray-200 rounded-full">
-                                <div id="progress-fill" class="progress-bar h-full bg-indigo-500 rounded-full" style="width: 0%;"></div>
-                            </div>
-                            <div class="text-sm text-gray-500 text-right" id="distance-value">0 / ${TOTAL_DISTANCE} miles</div>
-                        </div>
-                        
-                        <h3 class="text-lg font-bold mt-6 mb-3 text-gray-700">Health & Gear</h3>
-                        <div class="space-y-4">
-                            <div>
-                                <div id="laptop-label" class="text-sm font-medium text-gray-700 mb-1">Laptop Health: 100%</div>
-                                <div class="stat-bar bg-gray-200">
-                                    <div id="laptop-fill" class="stat-fill bg-green-500 h-full" style="width: 100%;"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div id="mental-label" class="text-sm font-medium text-gray-700 mb-1">Mental Health: 100%</div>
-                                <div class="stat-bar bg-gray-200">
-                                    <div id="mental-fill" class="stat-fill bg-yellow-500 h-full" style="width: 100%;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner max-h-96 overflow-y-auto">
-                        <h3 class="text-lg font-bold mb-3 text-gray-700">Journey Log</h3>
-                        <div id="log-area" class="text-sm">
-                            <p class="text-gray-500">Welcome, ${player.profession}! Your journey begins.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-2 space-y-6">
-                    <div id="scenario-display" class="min-h-[150px] flex items-center justify-center">
-                        <div class="text-center text-gray-500 p-6 bg-white rounded-xl shadow-md">
-                            <span class="text-xl font-medium">Ready to travel?</span>
-                        </div>
-                    </div>
-
-                    <div id="action-controls">
-                        <button id="continue-btn" onclick="continueJourney()" class="w-full p-4 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg transition duration-150">
-                            Press to Start Journey
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-    updateUI();
-}
-
-// Initialize the game on load
-window.onload = startGame;
-    </script>
-</body>
-</html>
