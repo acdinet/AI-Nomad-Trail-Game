@@ -12,9 +12,10 @@
         .stat-bar { height: 1.5rem; border-radius: 0.5rem; overflow: hidden; }
         .stat-fill { transition: width 0.5s; }
         #game-area { min-height: 80vh; }
-        /* Style for disabled button clarity */
-        button:disabled {
-            background-color: #9ca3af !important; /* Force gray background */
+        
+        /* FIX: Dedicated style for disabled travel button */
+        .button-disabled-style {
+            background-color: #9ca3af !important; /* Tailwind gray-400 */
             cursor: not-allowed;
             opacity: 0.7;
             box-shadow: none !important;
@@ -30,9 +31,6 @@
 const START_CITY = "New York City, NY";
 const END_CITY = "San Francisco, CA";
 const TOTAL_DISTANCE = 3000;
-const STARTING_CASH = 3000;
-const STARTING_LAPTOP_HEALTH = 100;
-const STARTING_MENTAL_HEALTH = 100;
 const PROFESSIONS = [
     { name: "AI Prompt Engineer", cash: 3500, laptop: 100, mental: 90, description: "High income, high burnout risk." },
     { name: "Content Creator", cash: 2500, laptop: 95, mental: 100, description: "Flexible schedule, unpredictable income." },
@@ -46,9 +44,9 @@ class Player {
         
         this.profession = professionName;
         this.distance = 0;
-        this.cash = professionData.cash || STARTING_CASH;
-        this.laptop_health = professionData.laptop || STARTING_LAPTOP_HEALTH;
-        this.mental_health = professionData.mental || STARTING_MENTAL_HEALTH;
+        this.cash = professionData.cash;
+        this.laptop_health = professionData.laptop;
+        this.mental_health = professionData.mental;
         this.is_alive = true;
         this.game_over_reason = "";
     }
@@ -62,7 +60,6 @@ class Player {
         this.laptop_health = this.clamp(this.laptop_health + laptop, 0, 100);
         this.mental_health = this.clamp(this.mental_health + mental, 0, 100);
         
-        // Minor change for better log readability
         const cashDisplay = cash > 0 ? `+${cash}` : `${cash}`;
         const laptopDisplay = laptop > 0 ? `+${laptop}` : `${laptop}`;
         const mentalDisplay = mental > 0 ? `+${mental}` : `${mental}`;
@@ -103,26 +100,24 @@ let currentScenario = null;
 // --- Core Game Functions ---
 
 function rollForTravel() {
-    // CRITICAL FIX 1: Lock to prevent repeated travel clicks.
+    // Lock prevents repeated travel clicks
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
-    // Immediately display "Traveling..." message
+    // Immediately clear buttons and show "Traveling..."
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
     if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Wait for your next destination.</p>';
-    if (actionControls) actionControls.innerHTML = ''; // Clear ALL buttons
-
+    if (actionControls) actionControls.innerHTML = ''; 
     
     // Simulate travel
-    const distanceTraveled = Math.floor(Math.random() * 300) + 100; // 100 to 400 miles
-    const cost = Math.floor(Math.random() * 150) + 50; // $50 to $200
-    const mentalDrain = Math.floor(Math.random() * 5) + 2; // 2 to 7%
-    const laptopWear = Math.floor(Math.random() * 3) + 1; // 1 to 4%
+    const distanceTraveled = Math.floor(Math.random() * 300) + 100;
+    const cost = Math.floor(Math.random() * 150) + 50;
+    const mentalDrain = Math.floor(Math.random() * 5) + 2;
+    const laptopWear = Math.floor(Math.random() * 3) + 1;
 
     player.distance += distanceTraveled;
     
-    // Apply effects and check for game over
     player.applyEffect(
         -cost, 
         -laptopWear, 
@@ -131,16 +126,14 @@ function rollForTravel() {
     );
     updateUI();
 
-    // Determine next state
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
-        // Wait 1.5s before displaying the next scenario
         setTimeout(() => {
-            displayNextScenario(); // Show the next event
-            isProcessing = false; // Release lock only after new scenario is displayed
+            displayNextScenario();
+            isProcessing = false; // Release lock after new scenario is ready
         }, 1500); 
     } else {
         isProcessing = false;
-        updateUI(); // This will trigger endGame
+        updateUI(); 
     }
 }
 
@@ -182,12 +175,12 @@ function displayNextScenario() {
 
     if (scenarioDisplay && actionControls) {
         scenarioDisplay.innerHTML = `<h3 class="text-xl font-semibold mb-4 text-indigo-800">New Stop: Decision Required</h3><p class="text-gray-700">${currentScenario.text}</p>`;
-        actionControls.innerHTML = ''; // Clear old buttons
+        actionControls.innerHTML = ''; 
 
         currentScenario.options.forEach((option, index) => {
             const button = document.createElement('button');
             button.textContent = option.text;
-            button.id = `choice-button-${index}`; // ID for specific targeting
+            button.id = `choice-button-${index}`;
             button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md';
             button.onclick = () => handleScenarioChoice(index); 
             actionControls.appendChild(button);
@@ -197,35 +190,38 @@ function displayNextScenario() {
         const travelButton = document.createElement('button');
         travelButton.id = 'travel-button';
         travelButton.textContent = 'Continue Journey (Travel & Risk New Event)';
-        travelButton.className = 'w-full px-4 py-3 mt-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-lg';
+        // NOTE: Adding the dedicated disabled style class here.
+        travelButton.className = 'w-full px-4 py-3 mt-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-lg button-disabled-style';
         travelButton.onclick = rollForTravel;
         actionControls.appendChild(travelButton);
 
-        // CRITICAL FIX 2: Ensure the travel button is explicitly DISABLED immediately upon creation.
+        // Explicitly disable the button
         travelButton.disabled = true; 
     }
     updateUI();
 }
 
 function handleScenarioChoice(choiceIndex) {
-    // Only proceed if a choice hasn't already been made for this scenario
-    if (currentScenario === null) return; 
+    // FIX: Use a robust check to ensure choice logic only runs once
+    if (currentScenario === null || !player.is_alive) return; 
 
     const choice = currentScenario.options[choiceIndex];
     player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
     updateUI(); 
 
-    // 1. Disable ALL scenario choice buttons (prevents re-clicking the choice)
+    // 1. Disable ALL scenario choice buttons
     currentScenario.options.forEach((_, index) => {
         const btn = document.getElementById(`choice-button-${index}`);
         if (btn) btn.disabled = true;
     });
 
-    // 2. Explicitly ENABLE the Travel Button
+    // 2. Explicitly ENABLE the Travel Button and remove the disabled style
     const travelButton = document.getElementById('travel-button');
     if (travelButton) {
         travelButton.disabled = false;
-        travelButton.focus(); // Provide visual/accessibility feedback
+        // FIX: Remove the dedicated disabled style class
+        travelButton.classList.remove('button-disabled-style');
+        travelButton.focus();
     }
     
     // Clear current scenario to prevent double-choice and signal it's done
@@ -239,7 +235,6 @@ function updateUI() {
     const cashValueElement = document.getElementById('cash-value');
     if (!player || !cashValueElement) return;
 
-    // Use toLocaleString for proper currency formatting
     cashValueElement.textContent = `$${player.cash.toFixed(2).toLocaleString('en-US')}`; 
     
     const stats = [
@@ -263,7 +258,7 @@ function updateUI() {
 
         if (element && label) {
             element.style.width = `${value}%`;
-            element.className = `stat-fill ${colorClass} h-full`; // Update class to apply new color
+            element.className = `stat-fill ${colorClass} h-full`; 
             label.textContent = `${stat.label}: ${value.toFixed(0)}%`;
         }
     });
@@ -323,7 +318,6 @@ function endGame(isWin) {
 
 function initializeGameLayout() {
     const gameArea = document.getElementById('game-area');
-    // This renders the main dashboard layout
     gameArea.innerHTML = `
         <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl">
             <h1 class="text-4xl font-extrabold text-indigo-700 mb-6 border-b pb-3">The 2025 AI Nomad Trail</h1>
@@ -376,19 +370,16 @@ function initializeGameLayout() {
 
 function startGame(professionName) {
     player = new Player(professionName);
-    initializeGameLayout(); // Render the dashboard and log area
-    updateUI(); // Fill in initial stats
+    initializeGameLayout();
+    updateUI(); 
     
-    // Log initial conditions
     player.logMessage(`You chose: ${player.profession}. Starting with $${player.cash}, ${player.laptop_health}% Laptop, and ${player.mental_health}% Mental Health.`, 'text-green-600 font-bold');
     
-    // Immediately display the first scenario and the travel button
     displayNextScenario();
 }
 
 function showProfessionSelection() {
-    // CRITICAL FIX 3: We ensure the layout is clean before showing selection
-    initializeGameLayout(); 
+    initializeGameLayout();
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
     const logArea = document.getElementById('log-area');
