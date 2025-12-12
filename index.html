@@ -14,9 +14,10 @@
         #game-area { min-height: 80vh; }
         /* Style for disabled button clarity */
         button:disabled {
-            background-color: #9ca3af; /* Gray background */
+            background-color: #9ca3af !important; /* Force gray background */
             cursor: not-allowed;
             opacity: 0.7;
+            box-shadow: none !important;
         }
     </style>
 </head>
@@ -61,7 +62,12 @@ class Player {
         this.laptop_health = this.clamp(this.laptop_health + laptop, 0, 100);
         this.mental_health = this.clamp(this.mental_health + mental, 0, 100);
         
-        this.logMessage(`Outcome: ${outcomeText} (Cash: ${cash > 0 ? '+' : ''}$${cash}, Laptop: ${laptop > 0 ? '+' : ''}${laptop}%, Mental: ${mental > 0 ? '+' : ''}${mental}%)`, 'text-blue-600');
+        // Minor change for better log readability
+        const cashDisplay = cash > 0 ? `+${cash}` : `${cash}`;
+        const laptopDisplay = laptop > 0 ? `+${laptop}` : `${laptop}`;
+        const mentalDisplay = mental > 0 ? `+${mental}` : `${mental}`;
+
+        this.logMessage(`Outcome: ${outcomeText} (Cash: $${cashDisplay}, Laptop: ${laptopDisplay}%, Mental: ${mentalDisplay}%)`, 'text-blue-600');
         this.checkGameOver();
     }
     
@@ -101,13 +107,14 @@ function rollForTravel() {
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
-    // Clear the current scenario display and actions immediately
+    // Immediately display "Traveling..." message
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
     if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Wait for your next destination.</p>';
-    if (actionControls) actionControls.innerHTML = '';
+    if (actionControls) actionControls.innerHTML = ''; // Clear ALL buttons
+
     
-    // Simulate travel: advance distance, consume cash/mental/laptop health
+    // Simulate travel
     const distanceTraveled = Math.floor(Math.random() * 300) + 100; // 100 to 400 miles
     const cost = Math.floor(Math.random() * 150) + 50; // $50 to $200
     const mentalDrain = Math.floor(Math.random() * 5) + 2; // 2 to 7%
@@ -133,7 +140,7 @@ function rollForTravel() {
         }, 1500); 
     } else {
         isProcessing = false;
-        updateUI(); // This will trigger endGame if distance is met or player died
+        updateUI(); // This will trigger endGame
     }
 }
 
@@ -194,14 +201,15 @@ function displayNextScenario() {
         travelButton.onclick = rollForTravel;
         actionControls.appendChild(travelButton);
 
-        // CRITICAL: The travel button starts DISABLED, forcing a choice first.
+        // CRITICAL FIX 2: Ensure the travel button is explicitly DISABLED immediately upon creation.
         travelButton.disabled = true; 
     }
     updateUI();
 }
 
 function handleScenarioChoice(choiceIndex) {
-    if (!currentScenario) return;
+    // Only proceed if a choice hasn't already been made for this scenario
+    if (currentScenario === null) return; 
 
     const choice = currentScenario.options[choiceIndex];
     player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
@@ -217,10 +225,10 @@ function handleScenarioChoice(choiceIndex) {
     const travelButton = document.getElementById('travel-button');
     if (travelButton) {
         travelButton.disabled = false;
-        travelButton.focus(); // Give visual feedback that it's the next step
+        travelButton.focus(); // Provide visual/accessibility feedback
     }
     
-    // Clear current scenario so it cannot be re-applied
+    // Clear current scenario to prevent double-choice and signal it's done
     currentScenario = null;
 }
 
@@ -379,7 +387,8 @@ function startGame(professionName) {
 }
 
 function showProfessionSelection() {
-    initializeGameLayout(); // Use the same layout function to get the structure
+    // CRITICAL FIX 3: We ensure the layout is clean before showing selection
+    initializeGameLayout(); 
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
     const logArea = document.getElementById('log-area');
