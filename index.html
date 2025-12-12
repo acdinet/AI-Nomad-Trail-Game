@@ -91,9 +91,16 @@ let currentScenario = null;
 // --- Core Game Functions ---
 
 function rollForTravel() {
+    // If the game is processing a choice or the player is dead, exit.
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
-
+    
+    // Clear the current scenario display
+    const scenarioDisplay = document.getElementById('scenario-display');
+    const actionControls = document.getElementById('action-controls');
+    if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700">Traveling...</p>';
+    if (actionControls) actionControls.innerHTML = '';
+    
     // Simulate travel: advance distance, consume cash/mental/laptop health
     const distanceTraveled = Math.floor(Math.random() * 300) + 100; // 100 to 400 miles
     const cost = Math.floor(Math.random() * 150) + 50; // $50 to $200
@@ -102,22 +109,24 @@ function rollForTravel() {
 
     player.distance += distanceTraveled;
     
+    // Apply effects and check for game over
     player.applyEffect(
         -cost, 
         -laptopWear, 
         -mentalDrain, 
         `Traveled ${distanceTraveled} miles, costing $${cost}.`
     );
+    updateUI(); // Update UI immediately after applying travel effects
 
-    // After travel, show a scenario
+    // After travel, determine next state
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
         setTimeout(() => {
-            displayNextScenario();
+            displayNextScenario(); // Show the next event
             isProcessing = false;
-        }, 1000);
+        }, 1500); // Give the user time to read the log message
     } else {
         isProcessing = false;
-        updateUI();
+        updateUI(); // This will trigger endGame if distance is met or player died
     }
 }
 
@@ -146,18 +155,19 @@ function displayNextScenario() {
 
     if (scenarioDisplay && actionControls) {
         scenarioDisplay.innerHTML = `<h3 class="text-xl font-semibold mb-4 text-indigo-800">Event:</h3><p class="text-gray-700">${currentScenario.text}</p>`;
-        actionControls.innerHTML = '';
+        actionControls.innerHTML = ''; // Clear old buttons
 
         currentScenario.options.forEach((option, index) => {
             const button = document.createElement('button');
             button.textContent = option.text;
-            button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md disabled:bg-gray-400';
+            button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md';
             button.onclick = () => handleScenarioChoice(index);
             actionControls.appendChild(button);
         });
         
-        // Add the mandatory travel button again
+        // Add the mandatory travel button
         const travelButton = document.createElement('button');
+        travelButton.id = 'travel-button'; // Give it an ID for targeted access
         travelButton.textContent = 'Continue Journey (Travel & Risk New Event)';
         travelButton.className = 'w-full px-4 py-3 mt-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-lg';
         travelButton.onclick = rollForTravel;
@@ -172,19 +182,23 @@ function handleScenarioChoice(choiceIndex) {
     
     const choice = currentScenario.options[choiceIndex];
     player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
+    updateUI(); // Update stats immediately
 
-    // Disable buttons after choice is made
+    // Disable scenario choice buttons after selection, but keep travel button active
     const actionControls = document.getElementById('action-controls');
     if (actionControls) {
-        Array.from(actionControls.querySelectorAll('button')).forEach(btn => btn.disabled = true);
+        // Disable all scenario buttons, but exclude the 'Continue Journey' button
+        Array.from(actionControls.querySelectorAll('button')).forEach(btn => {
+            if (btn.id !== 'travel-button') {
+                 btn.disabled = true;
+            }
+        });
     }
     
-    // Wait a moment and then prepare for the next action (which will be travel)
+    // Reset processing flag, allowing the user to click the travel button next
     setTimeout(() => {
         isProcessing = false;
-        updateUI();
-        // The user must now click "Continue Journey" to progress
-    }, 1500);
+    }, 1000);
 }
 
 
