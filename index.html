@@ -1,4 +1,24 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The 2025 AI Nomad Trail</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f7f9; }
+        .progress-bar { transition: width 0.5s ease-in-out; }
+        .stat-bar { height: 1.5rem; border-radius: 0.5rem; overflow: hidden; }
+        .stat-fill { transition: width 0.5s; }
+        #game-area { min-height: 80vh; }
+    </style>
+</head>
+<body>
+    <div id="game-area" class="p-4 md:p-8">
+    </div>
+
+    <script>
 // --- Game Configuration & Constants ---
 const START_CITY = "New York City, NY";
 const END_CITY = "San Francisco, CA";
@@ -48,7 +68,6 @@ class Player {
         return !this.is_alive;
     }
 
-    // Safest Log: Only writes to log if the element exists.
     logMessage(text, colorClass = 'text-gray-800') {
         const log = document.getElementById('log-area');
         const p = document.createElement('p');
@@ -65,12 +84,8 @@ let currentScenario = null;
 // --- UI & Initialization Functions ---
 
 function updateUI() {
-    // 💥 FIX: If player is null OR if no UI elements exist yet, return immediately.
-    // This prevents crashes before the UI is fully established.
     const cashValueElement = document.getElementById('cash-value');
     if (!player || !cashValueElement) return;
-
-    // The rest of the updateUI logic remains the same, but is now safely guarded.
 
     cashValueElement.textContent = `$${player.cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     
@@ -191,12 +206,10 @@ function initializeGame() {
                 </div>
         </div>
     `;
-    // Removed updateUI() call here to prevent initial crash.
 }
 
 function startGame(profession) {
     player = new Player(profession);
-    // After player is created, the UI elements are available. Now it's safe to update.
     updateUI(); 
     player.logMessage(`Game Started! You are a ${profession} on the trail.`, 'text-green-600 font-bold');
     displayActionControls();
@@ -361,3 +374,5 @@ function handleChoice(choice) {
 // --- INITIALIZATION ---
 initializeGame();
 </script>
+</body>
+</html>
