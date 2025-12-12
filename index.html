@@ -104,11 +104,11 @@ function rollForTravel() {
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
-    // Clear scenario buttons but keep the permanent travel button element
+    // Clear scenario buttons and show "Traveling..." instantly
     const scenarioDisplay = document.getElementById('scenario-display');
-    const scenarioControls = document.getElementById('scenario-controls'); // Use the new ID for options
+    const scenarioControls = document.getElementById('scenario-controls');
     
-    if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Wait for your next destination.</p>';
+    if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Calculating next stop.</p>';
     if (scenarioControls) scenarioControls.innerHTML = ''; 
     
     // Simulate travel
@@ -126,16 +126,15 @@ function rollForTravel() {
         `Traveled ${distanceTraveled} miles, costing $${cost}.`
     );
     updateUI();
-
+    
+    // Determine next state and immediately display the next scenario without a timer
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
-        setTimeout(() => {
-            displayNextScenario();
-            isProcessing = false; // Release lock after new scenario is ready
-        }, 1500); 
+        displayNextScenario();
     } else {
-        isProcessing = false;
         updateUI(); 
     }
+    
+    isProcessing = false; // Release lock immediately after the next scenario is rendered
 }
 
 function displayNextScenario() {
@@ -191,9 +190,7 @@ function displayNextScenario() {
         // Ensure Travel Button is disabled for the new scenario
         if (travelButton) {
             travelButton.disabled = true;
-            // Add the disabled style
             travelButton.classList.add('button-disabled-style');
-            // Ensure green background is removed/overridden by the disabled style
             travelButton.classList.remove('bg-green-600'); 
             travelButton.classList.remove('hover:bg-green-700'); 
         }
