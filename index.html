@@ -7,8 +7,6 @@ const STARTING_CASH = 3000;
 const STARTING_LAPTOP_HEALTH = 100;
 const STARTING_MENTAL_HEALTH = 100;
 
-// API key constants and direct API URLs have been REMOVED for security.
-
 // --- Player Class (JavaScript equivalent) ---
 class Player {
     constructor(profession) {
@@ -50,13 +48,12 @@ class Player {
         return !this.is_alive;
     }
 
-    // FIX HERE: Added a check for the log area before trying to use it.
+    // Safest Log: Only writes to log if the element exists.
     logMessage(text, colorClass = 'text-gray-800') {
         const log = document.getElementById('log-area');
         const p = document.createElement('p');
         p.className = `text-sm mb-1 ${colorClass}`;
         p.textContent = text;
-        // Only try to prepend if the log element exists
         if (log) log.prepend(p);
     }
 }
@@ -68,12 +65,14 @@ let currentScenario = null;
 // --- UI & Initialization Functions ---
 
 function updateUI() {
-    if (!player) return;
-
+    // 💥 FIX: If player is null OR if no UI elements exist yet, return immediately.
+    // This prevents crashes before the UI is fully established.
     const cashValueElement = document.getElementById('cash-value');
-    if (cashValueElement) {
-        cashValueElement.textContent = `$${player.cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
-    }
+    if (!player || !cashValueElement) return;
+
+    // The rest of the updateUI logic remains the same, but is now safely guarded.
+
+    cashValueElement.textContent = `$${player.cash.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     
     const stats = [
         { id: 'laptop', value: player.laptop_health, color: 'bg-green-500', label: 'Laptop Health' },
@@ -145,8 +144,6 @@ function endGame(isWin) {
 
 function initializeGame() {
     const gameArea = document.getElementById('game-area');
-    // NOTE: gameArea is guaranteed to exist because the script runs after the <body> content.
-
     gameArea.innerHTML = `
         <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl">
             <h1 class="text-4xl font-extrabold text-indigo-700 mb-6 border-b pb-3">The 2025 AI Nomad Trail</h1>
@@ -194,13 +191,14 @@ function initializeGame() {
                 </div>
         </div>
     `;
-    updateUI();
+    // Removed updateUI() call here to prevent initial crash.
 }
 
 function startGame(profession) {
     player = new Player(profession);
+    // After player is created, the UI elements are available. Now it's safe to update.
+    updateUI(); 
     player.logMessage(`Game Started! You are a ${profession} on the trail.`, 'text-green-600 font-bold');
-    updateUI();
     displayActionControls();
 }
 
@@ -217,12 +215,10 @@ function displayActionControls() {
 
 function moveNextStop() {
     if (isProcessing) return;
-    // Move 100-300 miles
     const distanceTraveled = Math.floor(Math.random() * 201) + 100;
     player.distance += distanceTraveled;
     player.logMessage(`Traveled ${distanceTraveled} miles to the next stop.`, 'text-purple-600');
     
-    // Slight drain on stats just for travel
     player.applyEffect(-50, -5, -3, 0, "Cost of travel and basic living expenses.");
 
     updateUI();
@@ -236,10 +232,8 @@ function moveNextStop() {
 // --- AI API Integration (SECURELY FIXED) ---
 
 async function generateAIScenario() {
-    // 1. SECURELY GET THE KEY FROM VERCEL ENVIRONMENT VARIABLE
     const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
 
-    // 2. ERROR CHECK: PREVENT CRASH
     if (!GEMINI_API_KEY) {
         player.logMessage("FATAL ERROR: AI Key is missing. Check Vercel Environment Variables.", 'text-red-600 font-bold');
         isProcessing = false;
@@ -262,7 +256,6 @@ async function generateAIScenario() {
         `;
     }
 
-    // 3. ACTUAL API CALL TO GEMINI
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`, {
             method: 'POST',
@@ -320,7 +313,6 @@ function displayScenario(scenario) {
         </div>
     `;
 
-    // Construct the choice buttons dynamically
     actionControls.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button onclick="handleChoice('A')" class="p-3 bg-blue-500 text-white rounded-lg shadow hover:bg-blue-600 transition duration-150">${scenario.outcomeA}</button>
@@ -367,7 +359,5 @@ function handleChoice(choice) {
 }
 
 // --- INITIALIZATION ---
-// FIX HERE: Call initializeGame directly instead of using window.onload which can fire too early 
-// before the log area is available within the innerHTML of gameArea.
 initializeGame();
 </script>
