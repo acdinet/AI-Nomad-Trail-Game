@@ -91,7 +91,7 @@ let currentScenario = null;
 // --- Core Game Functions ---
 
 function rollForTravel() {
-    // Prevent double-click or travel while game is waiting for choice outcome
+    // CRITICAL: This lock prevents clicking 'Continue' repeatedly during travel/processing.
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
@@ -118,11 +118,11 @@ function rollForTravel() {
     );
     updateUI();
 
-    // After travel, determine next state
+    // Determine next state
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
         setTimeout(() => {
             displayNextScenario(); // Show the next event
-            isProcessing = false; // Reset processing AFTER new scenario is displayed
+            isProcessing = false; // Release lock only after new scenario is displayed
         }, 1500); 
     } else {
         isProcessing = false;
@@ -162,7 +162,8 @@ function displayNextScenario() {
             button.textContent = option.text;
             button.id = `choice-button-${index}`; // ID for specific targeting
             button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md';
-            button.onclick = () => handleScenarioChoice(index);
+            // IMPORTANT: The button function handles effects and enabling the next step.
+            button.onclick = () => handleScenarioChoice(index); 
             actionControls.appendChild(button);
         });
         
@@ -174,16 +175,15 @@ function displayNextScenario() {
         travelButton.onclick = rollForTravel;
         actionControls.appendChild(travelButton);
 
-        // FIX: Initially disable the travel button until a choice is made
+        // CRITICAL FIX: The travel button is disabled by default, requiring a choice first.
         travelButton.disabled = true; 
     }
     updateUI();
 }
 
 function handleScenarioChoice(choiceIndex) {
-    if (isProcessing) return;
-    isProcessing = true; // Lock the controls temporarily for outcome logging
-
+    // FIX: Removed the isProcessing check/set/timeout here entirely to eliminate the timing bug.
+    
     const choice = currentScenario.options[choiceIndex];
     player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
     updateUI(); 
@@ -200,10 +200,7 @@ function handleScenarioChoice(choiceIndex) {
         travelButton.disabled = false;
     }
     
-    // 3. Unlock controls after logging the result
-    setTimeout(() => {
-        isProcessing = false;
-    }, 500); // 500ms delay to ensure the outcome logs before the lock is released
+    // The player is now free to click 'Continue Journey'.
 }
 
 
@@ -376,19 +373,3 @@ function showProfessionSelection() {
             button.textContent = `${p.name} (Start Cash: $${p.cash.toLocaleString()})`;
             button.className = 'w-full px-4 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg';
             button.onclick = () => startGame(p.name);
-            actionControls.appendChild(button);
-            
-            const description = document.createElement('p');
-            description.textContent = p.description;
-            description.className = 'text-sm text-gray-500 mb-4 px-2';
-            actionControls.appendChild(description);
-        });
-    }
-}
-
-// *** CRITICAL FIX: The entire game starts here when the page is fully loaded ***
-document.addEventListener('DOMContentLoaded', showProfessionSelection);
-
-    </script>
-</body>
-</html>
