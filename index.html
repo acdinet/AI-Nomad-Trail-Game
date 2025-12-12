@@ -12,14 +12,6 @@
         .stat-bar { height: 1.5rem; border-radius: 0.5rem; overflow: hidden; }
         .stat-fill { transition: width 0.5s; }
         #game-area { min-height: 80vh; }
-        
-        /* FINAL FIX: Dedicated style for disabled travel button */
-        .button-disabled-style {
-            background-color: #9ca3af !important; /* Tailwind gray-400 */
-            cursor: not-allowed;
-            opacity: 0.7;
-            box-shadow: none !important;
-        }
     </style>
 </head>
 <body>
@@ -100,18 +92,15 @@ let currentScenario = null;
 // --- Core Game Functions ---
 
 function rollForTravel() {
-    // Lock prevents repeated travel clicks.
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
-    // Clear scenario buttons and show "Traveling..." instantly
     const scenarioDisplay = document.getElementById('scenario-display');
     const scenarioControls = document.getElementById('scenario-controls');
     
     if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Calculating next stop.</p>';
     if (scenarioControls) scenarioControls.innerHTML = ''; 
     
-    // Simulate travel
     const distanceTraveled = Math.floor(Math.random() * 300) + 100;
     const cost = Math.floor(Math.random() * 150) + 50;
     const mentalDrain = Math.floor(Math.random() * 5) + 2;
@@ -127,14 +116,13 @@ function rollForTravel() {
     );
     updateUI();
     
-    // Determine next state and display the next scenario instantly
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
         displayNextScenario();
     } else {
         updateUI(); 
     }
     
-    isProcessing = false; // Release lock immediately after the next scenario is rendered
+    isProcessing = false;
 }
 
 function displayNextScenario() {
@@ -142,4 +130,281 @@ function displayNextScenario() {
         { 
             text: "Your current co-working space has slow Wi-Fi. What do you do?",
             options: [
-                { text: "Pay for premium private office (Costly, high productivity)", cash: -200, laptop: 0, mental: +10,
+                { text: "Pay for premium private office (Costly, high productivity)", cash: -200, laptop: 0, mental: +10, outcome: "The private office was silent, you crushed your deadlines." },
+                { text: "Go to a coffee shop (Cheap, risky distractions)", cash: -10, laptop: -5, mental: +5, outcome: "Too much noise, but the change of scenery helped a bit." }
+            ]
+        },
+        {
+            text: "A new AI tool promises to automate 50% of your work, but costs a subscription. Purchase it?",
+            options: [
+                { text: "Buy the subscription (Major cost, high potential gain)", cash: -500, laptop: 0, mental: 0, outcome: "The tool saved you hours, allowing you to relax." },
+                { text: "Stick to your old workflow (No cost, increased fatigue)", cash: 0, laptop: 0, mental: -15, outcome: "You spent all night manually doing repetitive tasks." }
+            ]
+        },
+        {
+            text: "Your laptop is running dangerously hot due to a heavy render job. What do you do?",
+            options: [
+                { text: "Buy a cooling pad (Cost and slight delay)", cash: -80, laptop: +15, mental: 0, outcome: "The cooling pad stabilized your system, preventing permanent damage." },
+                { text: "Force the job through (Risk equipment failure)", cash: 0, laptop: -25, mental: -5, outcome: "The job finished, but your laptop sustained heavy thermal damage." }
+            ]
+        },
+        {
+            text: "You found a local digital nomad meetup. Attend it?",
+            options: [
+                { text: "Go and network (Cost of drinks, mental boost)", cash: -40, laptop: 0, mental: +20, outcome: "Great conversation! You feel motivated and connected." },
+                { text: "Stay in and work (Save money, feel isolated)", cash: 0, laptop: 0, mental: -10, outcome: "You got work done, but the loneliness is starting to set in." }
+            ]
+        }
+    ];
+
+    currentScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+    const scenarioDisplay = document.getElementById('scenario-display');
+    const scenarioControls = document.getElementById('scenario-controls');
+    const travelButton = document.getElementById('travel-button');
+
+    if (scenarioDisplay && scenarioControls) {
+        scenarioDisplay.innerHTML = `<h3 class="text-xl font-semibold mb-4 text-indigo-800">New Stop: Decision Required</h3><p class="text-gray-700">${currentScenario.text}</p>`;
+        scenarioControls.innerHTML = ''; 
+
+        currentScenario.options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.textContent = option.text;
+            button.id = `choice-button-${index}`;
+            button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md';
+            button.onclick = () => handleScenarioChoice(index); 
+            scenarioControls.appendChild(button);
+        });
+        
+        // DISABLE travel button when new scenario appears
+        if (travelButton) {
+            travelButton.disabled = true;
+            travelButton.className = 'w-full px-4 py-3 mt-4 bg-gray-400 text-white font-bold rounded-lg cursor-not-allowed opacity-70';
+        }
+    }
+    updateUI();
+}
+
+function handleScenarioChoice(choiceIndex) {
+    if (currentScenario === null || !player.is_alive) return; 
+
+    const choice = currentScenario.options[choiceIndex];
+    player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
+    updateUI(); 
+
+    // Disable ALL scenario choice buttons
+    currentScenario.options.forEach((_, index) => {
+        const btn = document.getElementById(`choice-button-${index}`);
+        if (btn) {
+            btn.disabled = true;
+            btn.className = 'w-full px-4 py-2 mb-3 bg-gray-400 text-white rounded-lg cursor-not-allowed opacity-70';
+        }
+    });
+
+    // ENABLE the Travel Button
+    const travelButton = document.getElementById('travel-button');
+    if (travelButton) {
+        travelButton.disabled = false;
+        travelButton.className = 'w-full px-4 py-3 mt-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-lg';
+        travelButton.focus();
+    }
+    
+    currentScenario = null;
+}
+
+// --- UI & Initialization Functions ---
+
+function updateUI() {
+    const cashValueElement = document.getElementById('cash-value');
+    if (!player || !cashValueElement) return;
+
+    cashValueElement.textContent = `$${player.cash.toFixed(2)}`; 
+    
+    const stats = [
+        { id: 'laptop', value: player.laptop_health, label: 'Laptop Health' },
+        { id: 'mental', value: player.mental_health, label: 'Mental Health' }
+    ];
+
+    stats.forEach(stat => {
+        const element = document.getElementById(`${stat.id}-fill`);
+        const label = document.getElementById(`${stat.id}-label`);
+        const value = Math.max(0, stat.value);
+        let colorClass = 'bg-green-500';
+
+        if (stat.id === 'laptop') {
+            colorClass = (value < 20) ? 'bg-red-600' : (value < 50) ? 'bg-orange-500' : 'bg-green-500';
+        } else if (stat.id === 'mental') {
+            colorClass = (value < 20) ? 'bg-red-600' : (value < 50) ? 'bg-yellow-500' : 'bg-lime-500';
+        }
+
+        if (element && label) {
+            element.style.width = `${value}%`;
+            element.className = `stat-fill ${colorClass} h-full`; 
+            label.textContent = `${stat.label}: ${value.toFixed(0)}%`;
+        }
+    });
+
+    const progress = (player.distance / TOTAL_DISTANCE) * 100;
+    const distanceValueElement = document.getElementById('distance-value');
+    const progressFillElement = document.getElementById('progress-fill');
+    const statusInfoElement = document.getElementById('status-info');
+
+    if (distanceValueElement) {
+        distanceValueElement.textContent = `${player.distance.toLocaleString()} / ${TOTAL_DISTANCE.toLocaleString()} miles`;
+    }
+    
+    if (progressFillElement) {
+        progressFillElement.style.width = `${progress}%`;
+        progressFillElement.className = `progress-bar h-full ${progress < 50 ? 'bg-indigo-400' : progress < 90 ? 'bg-indigo-500' : 'bg-green-600'} rounded-full`;
+    }
+
+    if (statusInfoElement) {
+        statusInfoElement.innerHTML = `
+            <div class="font-bold text-2xl text-indigo-700">${player.profession}</div>
+            <div class="text-sm text-gray-500">Journey: ${START_CITY} to ${END_CITY}</div>
+        `;
+    }
+    
+    if (player.distance >= TOTAL_DISTANCE && player.is_alive) {
+        endGame(true);
+    } else if (!player.is_alive) {
+        endGame(false);
+    }
+}
+
+function endGame(isWin) {
+    isProcessing = true;
+    const title = isWin ? "CONGRATULATIONS!" : "GAME OVER.";
+    const message = isWin ? `You successfully reached ${END_CITY}!` : `Reason: ${player.game_over_reason}`;
+    
+    player.logMessage(`--- ${title} ---`, isWin ? 'text-green-700 font-bold' : 'text-red-700 font-bold');
+    player.logMessage(message, isWin ? 'text-green-700' : 'text-red-700');
+    player.logMessage("Refresh the page to play again.", 'text-gray-500');
+
+    const actionControls = document.getElementById('action-controls');
+    const scenarioDisplay = document.getElementById('scenario-display');
+
+    if (actionControls) actionControls.innerHTML = '';
+    
+    if (scenarioDisplay) {
+        scenarioDisplay.innerHTML = `
+            <div class="text-center p-6 bg-white rounded-lg shadow-xl">
+                <h2 class="text-3xl font-extrabold mb-4 ${isWin ? 'text-green-600' : 'text-red-600'}">${title}</h2>
+                <p class="text-lg text-gray-700">${message}</p>
+                <button onclick="window.location.reload()" class="mt-6 px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors">Play Again</button>
+            </div>
+        `;
+    }
+}
+
+function initializeGameLayout() {
+    const gameArea = document.getElementById('game-area');
+    gameArea.innerHTML = `
+        <div class="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl">
+            <h1 class="text-4xl font-extrabold text-indigo-700 mb-6 border-b pb-3">The 2025 AI Nomad Trail</h1>
+            
+            <div id="status-info" class="mb-6"></div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                    <div class="font-bold text-gray-700 mb-2">Cash: <span id="cash-value" class="text-green-600"></span></div>
+                    <p id="distance-value" class="text-sm text-gray-500"></p>
+                </div>
+                
+                <div class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                    <p id="laptop-label" class="text-sm text-gray-700 mb-1">Laptop Health: 100%</p>
+                    <div class="stat-bar bg-gray-300">
+                        <div id="laptop-fill" class="stat-fill bg-green-500" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <div class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                    <p id="mental-label" class="text-sm text-gray-700 mb-1">Mental Health: 100%</p>
+                    <div class="stat-bar bg-gray-300">
+                        <div id="mental-fill" class="stat-fill bg-yellow-500" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-200 h-3 rounded-full mb-8">
+                <div id="progress-fill" class="progress-bar h-full bg-indigo-500 rounded-full" style="width: 0%;"></div>
+            </div>
+
+            <div id="scenario-display" class="bg-indigo-50 p-6 rounded-lg shadow-inner mb-6">
+                <h3 class="text-xl font-semibold text-indigo-800">Choose Your Path</h3>
+                <p class="text-gray-700 mt-2">Select your digital nomad profession to begin your journey.</p>
+            </div>
+            
+            <div id="action-controls" class="space-y-4">
+                <div id="scenario-controls" class="space-y-4">
+                </div>
+                <button id="travel-button" onclick="rollForTravel()" class="w-full px-4 py-3 mt-4 bg-gray-400 text-white font-bold rounded-lg cursor-not-allowed opacity-70" disabled>
+                    Continue Journey (Travel & Risk New Event)
+                </button>
+            </div>
+            
+            <div class="mt-8 pt-4 border-t">
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">Journey Log</h4>
+                <div id="log-area" class="h-32 overflow-y-scroll bg-gray-50 p-3 rounded border">
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// --- Game Flow Control ---
+
+function startInteractionLoop(professionName) {
+    player = new Player(professionName);
+    initializeGameLayout();
+    updateUI(); 
+    
+    player.logMessage(`You chose: ${player.profession}. Starting with $${player.cash}, ${player.laptop_health}% Laptop, and ${player.mental_health}% Mental Health.`, 'text-green-600 font-bold');
+    
+    displayNextScenario();
+}
+
+function showProfessionSelection() {
+    initializeGameLayout();
+    const scenarioDisplay = document.getElementById('scenario-display');
+    const scenarioControls = document.getElementById('scenario-controls');
+    const logArea = document.getElementById('log-area');
+    const travelButton = document.getElementById('travel-button');
+
+    if (travelButton) travelButton.style.display = 'none';
+
+    if (scenarioDisplay && scenarioControls) {
+        scenarioDisplay.innerHTML = `
+            <h3 class="text-xl font-semibold text-indigo-800">Welcome to the AI Nomad Trail!</h3>
+            <p class="text-gray-700 mt-2">Select your starting profession to begin the journey from ${START_CITY} to ${END_CITY}.</p>
+            <p class="text-sm text-gray-500 mt-2">Click your profession below to begin. Your stats are crucial for survival!</p>
+        `;
+        scenarioControls.innerHTML = '';
+        if (logArea) logArea.innerHTML = '';
+
+        PROFESSIONS.forEach(p => {
+            const professionDiv = document.createElement('div');
+            professionDiv.className = 'p-4 bg-gray-100 rounded-lg shadow-sm hover:shadow-md transition-shadow';
+            professionDiv.innerHTML = `
+                <h4 class="font-bold text-indigo-700">${p.name}</h4>
+                <p class="text-sm text-gray-600 mb-2">${p.description}</p>
+                <p class="text-sm text-gray-500">Start Cash: <span class="text-green-600 font-semibold">$${p.cash.toLocaleString()}</span> | Laptop: ${p.laptop}% | Mental: ${p.mental}%</p>
+            `;
+
+            const button = document.createElement('button');
+            button.textContent = `Start as ${p.name}`;
+            button.className = 'w-full mt-2 px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg';
+            button.onclick = () => {
+                if (travelButton) travelButton.style.display = 'block';
+                startInteractionLoop(p.name);
+            };
+
+            professionDiv.appendChild(button);
+            scenarioControls.appendChild(professionDiv);
+        });
+    }
+}
+
+showProfessionSelection();
+    </script>
+</body>
+</html>
