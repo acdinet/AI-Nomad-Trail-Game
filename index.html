@@ -245,7 +245,9 @@ function moveNextStop() {
 // --- AI API Integration (SECURELY FIXED) ---
 
 async function generateAIScenario() {
-    const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    // 💥 FINAL FIX: Removing 'process.env' to fix the ReferenceError.
+    // The key is now assumed to be directly injected by Vercel's build process.
+    const GEMINI_API_KEY = NEXT_PUBLIC_GEMINI_API_KEY;
 
     if (!GEMINI_API_KEY) {
         player.logMessage("FATAL ERROR: AI Key is missing. Check Vercel Environment Variables.", 'text-red-600 font-bold');
@@ -309,7 +311,6 @@ async function generateAIScenario() {
         displayActionControls();
     }
 }
-
 
 // --- MISSING GAME LOGIC ---
 
