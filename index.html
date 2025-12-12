@@ -41,7 +41,7 @@ const PROFESSIONS = [
     { name: "DevOps Consultant", cash: 3000, laptop: 100, mental: 100, description: "Stable income, heavy reliance on equipment." }
 ];
 
-// Current US News-Based Scenarios (Updated based on search results)
+// Current US News-Based Scenarios 
 const DYNAMIC_SCENARIOS = [
     // Based on political news (e.g., AI regulation, immigration)
     { 
@@ -77,7 +77,7 @@ const DYNAMIC_SCENARIOS = [
     }
 ];
 
-// --- Player Class (No Change) ---
+// Player Class
 class Player {
     constructor(professionName) {
         const professionData = PROFESSIONS.find(p => p.name === professionName) || PROFESSIONS[0];
@@ -136,7 +136,7 @@ let player;
 let isProcessing = false;
 let currentScenario = null; 
 
-// --- Core Game Functions ---
+// Core Game Functions
 function rollForTravel() {
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
@@ -161,7 +161,6 @@ function rollForTravel() {
     updateUI();
     
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
-        // Call the asynchronous scenario fetch
         fetchScenarioFromAI();
     } else {
         updateUI(); 
@@ -170,31 +169,18 @@ function rollForTravel() {
     isProcessing = false;
 }
 
-// NEW ASYNCHRONOUS SCENARIO FUNCTION
+// ASYNCHRONOUS SCENARIO FUNCTION (fetches from DYNAMIC_SCENARIOS)
 async function fetchScenarioFromAI() {
-    // In a real application, you would use fetch() here:
-    /*
-    const apiKey = 'YOUR_DIGITAL_KEY'; // Assumes this is configured correctly on the server/proxy
-    const prompt = `Generate one digital nomad scenario based on recent (past 4 weeks) US news (political, local, economic) relevant to a remote worker. Format as JSON: {text: '...', options: [{text:'...', cash:0, laptop:0, mental:0, outcome:'...'}, ...]}`;
-    const response = await fetch('YOUR_AI_API_ENDPOINT', { 
-        method: 'POST', 
-        headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`},
-        body: JSON.stringify({ prompt: prompt })
-    });
-    const scenario = await response.json();
-    currentScenario = scenario;
-    */
-
-    // For this self-contained HTML/JS file, we use the pre-generated DYNAMIC_SCENARIOS array
+    // Select a random scenario from the DYNAMIC_SCENARIOS array
     currentScenario = DYNAMIC_SCENARIOS[Math.floor(Math.random() * DYNAMIC_SCENARIOS.length)];
     
-    // Now that the scenario is "fetched," display it
+    // Display the fetched scenario
     displayCurrentScenario();
 }
 
 
 function displayCurrentScenario() {
-    if (!currentScenario) return; // Should not happen after fetchScenarioFromAI()
+    if (!currentScenario) return; 
 
     const scenarioDisplay = document.getElementById('scenario-display');
     const scenarioControls = document.getElementById('scenario-controls');
@@ -229,8 +215,6 @@ function displayCurrentScenario() {
     updateUI();
 }
 
-// NOTE: The previous 'displayNextScenario' is now replaced by 'fetchScenarioFromAI' -> 'displayCurrentScenario'
-
 function handleScenarioChoice(choiceIndex) {
     if (currentScenario === null || !player.is_alive) return; 
 
@@ -261,8 +245,6 @@ function handleScenarioChoice(choiceIndex) {
     
     currentScenario = null;
 }
-
-// --- UI and Initialization Functions (No Change) ---
 
 function updateUI() {
     const cashValueElement = document.getElementById('cash-value');
@@ -405,6 +387,7 @@ function startInteractionLoop(professionName) {
     initializeGameLayout();
     updateUI(); 
     player.logMessage(`You chose: ${player.profession}. Starting with $${player.cash}, ${player.laptop_health}% Laptop, and ${player.mental_health}% Mental Health.`, 'text-green-600 font-bold');
+    // FIX: Removed the conflicting call to the old scenario logic and ensured the new one is used.
     fetchScenarioFromAI();
 }
 
