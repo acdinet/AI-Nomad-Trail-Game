@@ -12,11 +12,17 @@
         .stat-bar { height: 1.5rem; border-radius: 0.5rem; overflow: hidden; }
         .stat-fill { transition: width 0.5s; }
         #game-area { min-height: 80vh; }
+        /* Style for disabled button clarity */
+        button:disabled {
+            background-color: #9ca3af; /* Gray background */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
     </style>
 </head>
 <body>
     <div id="game-area" class="p-4 md:p-8">
-        </div>
+    </div>
 
     <script>
 // --- Game Configuration & Constants ---
@@ -55,7 +61,7 @@ class Player {
         this.laptop_health = this.clamp(this.laptop_health + laptop, 0, 100);
         this.mental_health = this.clamp(this.mental_health + mental, 0, 100);
         
-        this.logMessage(`Outcome: ${outcomeText} (Cash: $${cash}, Laptop: ${laptop}%, Mental: ${mental}%)`, 'text-blue-600');
+        this.logMessage(`Outcome: ${outcomeText} (Cash: ${cash > 0 ? '+' : ''}$${cash}, Laptop: ${laptop > 0 ? '+' : ''}${laptop}%, Mental: ${mental > 0 ? '+' : ''}${mental}%)`, 'text-blue-600');
         this.checkGameOver();
     }
     
@@ -91,14 +97,14 @@ let currentScenario = null;
 // --- Core Game Functions ---
 
 function rollForTravel() {
-    // CRITICAL: This lock prevents clicking 'Continue' repeatedly during travel/processing.
+    // CRITICAL FIX 1: Lock to prevent repeated travel clicks.
     if (isProcessing || !player.is_alive) return;
     isProcessing = true;
     
-    // Clear the current scenario display
+    // Clear the current scenario display and actions immediately
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
-    if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700">Traveling...</p>';
+    if (scenarioDisplay) scenarioDisplay.innerHTML = '<p class="text-lg text-indigo-700 font-semibold">Traveling...</p><p class="text-sm text-gray-500">Wait for your next destination.</p>';
     if (actionControls) actionControls.innerHTML = '';
     
     // Simulate travel: advance distance, consume cash/mental/laptop health
@@ -120,6 +126,7 @@ function rollForTravel() {
 
     // Determine next state
     if (player.is_alive && player.distance < TOTAL_DISTANCE) {
+        // Wait 1.5s before displaying the next scenario
         setTimeout(() => {
             displayNextScenario(); // Show the next event
             isProcessing = false; // Release lock only after new scenario is displayed
@@ -146,7 +153,20 @@ function displayNextScenario() {
                 { text: "Stick to your old workflow (No cost, increased fatigue)", cash: 0, laptop: 0, mental: -15, outcome: "You spent all night manually doing repetitive tasks." }
             ]
         },
-        // Add more scenarios here...
+        {
+            text: "Your laptop is running dangerously hot due to a heavy render job. What do you do?",
+            options: [
+                { text: "Buy a cooling pad (Cost and slight delay)", cash: -80, laptop: +15, mental: 0, outcome: "The cooling pad stabilized your system, preventing permanent damage." },
+                { text: "Force the job through (Risk equipment failure)", cash: 0, laptop: -25, mental: -5, outcome: "The job finished, but your laptop sustained heavy thermal damage." }
+            ]
+        },
+        {
+            text: "You found a local digital nomad meetup. Attend it?",
+            options: [
+                { text: "Go and network (Cost of drinks, mental boost)", cash: -40, laptop: 0, mental: +20, outcome: "Great conversation! You feel motivated and connected." },
+                { text: "Stay in and work (Save money, feel isolated)", cash: 0, laptop: 0, mental: -10, outcome: "You got work done, but the loneliness is starting to set in." }
+            ]
+        }
     ];
 
     currentScenario = scenarios[Math.floor(Math.random() * scenarios.length)];
@@ -154,7 +174,7 @@ function displayNextScenario() {
     const actionControls = document.getElementById('action-controls');
 
     if (scenarioDisplay && actionControls) {
-        scenarioDisplay.innerHTML = `<h3 class="text-xl font-semibold mb-4 text-indigo-800">Event:</h3><p class="text-gray-700">${currentScenario.text}</p>`;
+        scenarioDisplay.innerHTML = `<h3 class="text-xl font-semibold mb-4 text-indigo-800">New Stop: Decision Required</h3><p class="text-gray-700">${currentScenario.text}</p>`;
         actionControls.innerHTML = ''; // Clear old buttons
 
         currentScenario.options.forEach((option, index) => {
@@ -162,7 +182,6 @@ function displayNextScenario() {
             button.textContent = option.text;
             button.id = `choice-button-${index}`; // ID for specific targeting
             button.className = 'w-full px-4 py-2 mb-3 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow-md';
-            // IMPORTANT: The button function handles effects and enabling the next step.
             button.onclick = () => handleScenarioChoice(index); 
             actionControls.appendChild(button);
         });
@@ -175,20 +194,20 @@ function displayNextScenario() {
         travelButton.onclick = rollForTravel;
         actionControls.appendChild(travelButton);
 
-        // CRITICAL FIX: The travel button is disabled by default, requiring a choice first.
+        // CRITICAL: The travel button starts DISABLED, forcing a choice first.
         travelButton.disabled = true; 
     }
     updateUI();
 }
 
 function handleScenarioChoice(choiceIndex) {
-    // FIX: Removed the isProcessing check/set/timeout here entirely to eliminate the timing bug.
-    
+    if (!currentScenario) return;
+
     const choice = currentScenario.options[choiceIndex];
     player.applyEffect(choice.cash, choice.laptop, choice.mental, choice.outcome);
     updateUI(); 
 
-    // 1. Disable ALL scenario choice buttons
+    // 1. Disable ALL scenario choice buttons (prevents re-clicking the choice)
     currentScenario.options.forEach((_, index) => {
         const btn = document.getElementById(`choice-button-${index}`);
         if (btn) btn.disabled = true;
@@ -198,9 +217,11 @@ function handleScenarioChoice(choiceIndex) {
     const travelButton = document.getElementById('travel-button');
     if (travelButton) {
         travelButton.disabled = false;
+        travelButton.focus(); // Give visual feedback that it's the next step
     }
     
-    // The player is now free to click 'Continue Journey'.
+    // Clear current scenario so it cannot be re-applied
+    currentScenario = null;
 }
 
 
@@ -214,22 +235,23 @@ function updateUI() {
     cashValueElement.textContent = `$${player.cash.toFixed(2).toLocaleString('en-US')}`; 
     
     const stats = [
-        { id: 'laptop', value: player.laptop_health, color: 'bg-green-500', label: 'Laptop Health' },
-        { id: 'mental', value: player.mental_health, color: 'bg-yellow-500', label: 'Mental Health' }
+        { id: 'laptop', value: player.laptop_health, label: 'Laptop Health' },
+        { id: 'mental', value: player.mental_health, label: 'Mental Health' }
     ];
 
     stats.forEach(stat => {
         const element = document.getElementById(`${stat.id}-fill`);
         const label = document.getElementById(`${stat.id}-label`);
         const value = Math.max(0, stat.value);
-        let colorClass = stat.color;
+        let colorClass = 'bg-green-500';
 
-        // Change color for low health
-        if (value < 20) {
-            colorClass = 'bg-red-600';
-        } else if (value < 50) {
-            colorClass = 'bg-orange-500';
+        // Set colors based on health
+        if (stat.id === 'laptop') {
+            colorClass = (value < 20) ? 'bg-red-600' : (value < 50) ? 'bg-orange-500' : 'bg-green-500';
+        } else if (stat.id === 'mental') {
+            colorClass = (value < 20) ? 'bg-red-600' : (value < 50) ? 'bg-yellow-500' : 'bg-lime-500';
         }
+
 
         if (element && label) {
             element.style.width = `${value}%`;
@@ -360,16 +382,39 @@ function showProfessionSelection() {
     initializeGameLayout(); // Use the same layout function to get the structure
     const scenarioDisplay = document.getElementById('scenario-display');
     const actionControls = document.getElementById('action-controls');
+    const logArea = document.getElementById('log-area');
 
     if (scenarioDisplay && actionControls) {
         scenarioDisplay.innerHTML = `
             <h3 class="text-xl font-semibold text-indigo-800">Welcome to the AI Nomad Trail!</h3>
             <p class="text-gray-700 mt-2">Select your starting profession to begin the journey from ${START_CITY} to ${END_CITY}.</p>
+            <p class="text-sm text-gray-500 mt-2">Click your profession below to begin. Your stats are crucial for survival!</p>
         `;
         actionControls.innerHTML = '';
+        if (logArea) logArea.innerHTML = '';
 
         PROFESSIONS.forEach(p => {
+            const professionDiv = document.createElement('div');
+            professionDiv.className = 'p-4 bg-gray-100 rounded-lg shadow-sm hover:shadow-md transition-shadow';
+            professionDiv.innerHTML = `
+                <h4 class="font-bold text-indigo-700">${p.name}</h4>
+                <p class="text-sm text-gray-600 mb-2">${p.description}</p>
+                <p class="text-sm text-gray-500">Start Cash: <span class="text-green-600 font-semibold">$${p.cash.toLocaleString()}</span> | Laptop: ${p.laptop}% | Mental: ${p.mental}%</p>
+            `;
+
             const button = document.createElement('button');
-            button.textContent = `${p.name} (Start Cash: $${p.cash.toLocaleString()})`;
-            button.className = 'w-full px-4 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg';
+            button.textContent = `Start as ${p.name}`;
+            button.className = 'w-full mt-2 px-4 py-2 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors shadow-lg';
             button.onclick = () => startGame(p.name);
+
+            professionDiv.appendChild(button);
+            actionControls.appendChild(professionDiv);
+        });
+    }
+}
+
+// Initialization call to show the starting screen
+showProfessionSelection();
+    </script>
+</body>
+</html>
